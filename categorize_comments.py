@@ -10,9 +10,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 import base64
 from io import BytesIO
 
-# Download stopwords and sentiment analysis lexicon
-nltk.download('stopwords')
-nltk.download('vader_lexicon')
+# Specify download directory for NLTK data
+nltk.download('stopwords', download_dir='/home/appuser/nltk_data')
+nltk.download('vader_lexicon', download_dir='/home/appuser/nltk_data')
+nltk.data.path.append('/home/appuser/nltk_data')
 
 # Initialize BERT model
 model = SentenceTransformer('all-MiniLM-L6-v2')
