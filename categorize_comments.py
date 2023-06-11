@@ -103,7 +103,7 @@ if comment_column is not None and process_button:
     sentiments = []
 
     # Process each comment
-    with st.spinner('Processing feedback...'):
+    with st.spinner('Processing feedback! This could take a while...'):
         for index, row in feedback_data.iterrows():
             preprocessed_comment = preprocess_text(row[comment_column])
             sentiment_score = perform_sentiment_analysis(preprocessed_comment)
