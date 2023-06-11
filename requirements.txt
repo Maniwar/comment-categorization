@@ -1,0 +1,7 @@
+streamlit
+pandas
+nltk
+sentence-transformers
+numpy
+scikit-learn
+base64
