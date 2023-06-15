@@ -83,7 +83,6 @@ default_categories = {
     'Accessibility': ['accessibility', 'inclusive design', 'special needs', 'assistive technologies', 'screen reader compatibility', 'website usability for disabled users'],
     'Unwanted Emails': ['spam emails', 'email subscriptions', 'unsubscribe', 'email preferences', 'inbox management', 'email marketing'],
 }
-
 # Edit categories and keywords
 st.sidebar.header("Edit Categories")
 categories = {}
@@ -103,15 +102,25 @@ if comment_column is not None and process_button:
     categorized_comments = []
     sentiments = []
 
+# Pre-compute embeddings for all keywords
+for category_name, keywords in categories.items():
+    for keyword in keywords:
+        keyword_embeddings[keyword] = model.encode([keyword])[0]
+
+if comment_column is not None and process_button:
+    # Initialize lists to store categorized comments and sentiments
+    categorized_comments = []
+    sentiments = []
+
     # Process each comment
     with st.spinner('Processing feedback...'):
         for index, row in feedback_data.iterrows():
             preprocessed_comment = preprocess_text(row[comment_column])
+            comment_embedding = model.encode([preprocessed_comment])[0]  # Compute the comment embedding once
             sentiment_score = perform_sentiment_analysis(preprocessed_comment)
 
             category = 'Other'
             sub_category = 'Other'
-            best_match_sub_category = 'Other'
             best_match_score = float('-inf')  # Initialized to negative infinity
 
             # Tokenize the preprocessed_comment
@@ -119,7 +128,8 @@ if comment_column is not None and process_button:
 
             for main_category, keywords in categories.items():
                 for keyword in keywords:
-                    similarity_score = compute_semantic_similarity(keyword, preprocessed_comment)
+                    keyword_embedding = keyword_embeddings[keyword]  # Use the precomputed keyword embedding
+                    similarity_score = compute_semantic_similarity(keyword_embedding, comment_embedding)
                     # If similarity_score equals best_match_score, we pick the first match.
                     # If similarity_score > best_match_score, we update best_match.
                     if similarity_score >= best_match_score:
