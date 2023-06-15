@@ -19,6 +19,9 @@ nltk.data.path.append('/home/appuser/nltk_data')
 # Initialize BERT model
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
+#Create a dictionary to store precomputed embeddings
+keyword_embeddings = {}
+
 # Preprocessing function
 def preprocess_text(text):
     # Remove unnecessary characters
@@ -44,10 +47,8 @@ def perform_sentiment_analysis(text):
     return compound_score
 
 # Compute semantic similarity
-def compute_semantic_similarity(keyword, comment):
-    keyword_embedding = model.encode([keyword])
-    comment_embedding = model.encode([comment])
-    similarity = cosine_similarity(keyword_embedding, comment_embedding)
+def compute_semantic_similarity(keyword_embedding, comment_embedding):
+    similarity = cosine_similarity([keyword_embedding], [comment_embedding])
     return similarity[0][0]
 
 # Streamlit interface
@@ -103,7 +104,7 @@ if comment_column is not None and process_button:
     sentiments = []
 
     # Process each comment
-    with st.spinner('Processing feedback! This could take a while...'):
+    with st.spinner('Processing feedback...'):
         for index, row in feedback_data.iterrows():
             preprocessed_comment = preprocess_text(row[comment_column])
             sentiment_score = perform_sentiment_analysis(preprocessed_comment)
