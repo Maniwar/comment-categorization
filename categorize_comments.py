@@ -289,10 +289,30 @@ if uploaded_file is not None:
         st.subheader("Sub-Category vs Sentiment and Survey Count")
         st.dataframe(pivot2)
 
-# Save DataFrame and pivot tables to Excel
+        # Convert 'Parsed Date' to datetime type
+        trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce')
+
+        # Format 'Parsed Date' as string with 'YYYY-MM-DD' format
+        trends_data['Parsed Date'] = trends_data['Parsed Date'].dt.strftime('%Y-%m-%d').fillna('')
+
+        # Create pivot table with counts for Category, Sub-Category, and Parsed Date
+        pivot = trends_data.pivot_table(
+            index=['Category', 'Sub-Category'],
+            columns=pd.to_datetime(trends_data['Parsed Date']).dt.strftime('%Y-%m-%d'),  # Format column headers as 'YYYY-MM-DD'
+            values='Sentiment',
+            aggfunc='count',
+            fill_value=0
+        )
+
+        # Sort the pivot table rows based on the highest count
+        pivot = pivot.loc[pivot.sum(axis=1).sort_values(ascending=False).index]
+
+        # Sort the pivot table columns in descending order based on the most recent date
+        pivot = pivot[sorted(pivot.columns, reverse=True)]
+
+        # Save DataFrame and pivot tables to Excel
         excel_file = BytesIO()
         with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
-            trends_data['Parsed Date'] = trends_data['Parsed Date'].dt.strftime('%Y-%m-%d').fillna('')
             trends_data.to_excel(writer, sheet_name='Feedback Trends and Insights', index=False)
             pivot.to_excel(writer, sheet_name='Trends', merge_cells=False)  # Disable merging cells for the 'Trends' sheet
             pivot1.to_excel(writer, sheet_name='Categories', merge_cells=False)  # Disable merging cells for the 'Categories' sheet
