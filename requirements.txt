@@ -2,6 +2,6 @@ streamlit
 pandas
 nltk
 sentence-transformers
-numpy
 scikit-learn
-openpyxl
+matplotlib
+seaborn
