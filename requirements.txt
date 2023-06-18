@@ -5,6 +5,5 @@ sentence-transformers
 scikit-learn
 matplotlib
 seaborn
-xlsxwriter
 numpy
 openpyxl
