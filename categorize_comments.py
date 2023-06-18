@@ -9,11 +9,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 import base64
 from io import BytesIO
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import matplotlib.ticker as ticker
 import seaborn as sns
 import datetime
 import numpy as np
+import openpyxl
 
 # Specify download directory for NLTK data
 nltk.download('stopwords', download_dir='/home/appuser/nltk_data')
@@ -171,9 +170,6 @@ if uploaded_file is not None:
         # Convert 'Parsed Date' into datetime format if it's not
         trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce')
 
-
-
-
         # Create pivot table with counts for Category, Sub-Category, and Parsed Date
         if grouping_option == 'Date':
             pivot = trends_data.pivot_table(
@@ -187,7 +183,7 @@ if uploaded_file is not None:
         elif grouping_option == 'Week':
             pivot = trends_data.pivot_table(
                 index=['Category', 'Sub-Category'],
-                columns=pd.Grouper(key='Parsed Date', freq='W'),  # Adjusted to start week on Sunday
+                columns=pd.Grouper(key='Parsed Date', freq='W-SUN'),  # Adjusted to start week on Sunday
                 values='Sentiment',
                 aggfunc='count',
                 fill_value=0
@@ -323,11 +319,66 @@ if uploaded_file is not None:
 
         # Save DataFrame and pivot tables to Excel
         excel_file = BytesIO()
-        with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
+        with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
             trends_data.to_excel(writer, sheet_name='Feedback Trends and Insights', index=False)
-            pivot.to_excel(writer, sheet_name='Trends', merge_cells=False)  # Disable merging cells for the 'Trends' sheet
-            pivot1.to_excel(writer, sheet_name='Categories', merge_cells=False)  # Disable merging cells for the 'Categories' sheet
-            pivot2.to_excel(writer, sheet_name='Subcategories', merge_cells=False)  # Disable merging cells for the 'Subcategories' sheet
+
+            # Convert 'Parsed Date' column to datetime type
+            trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce')
+
+            # Create a separate column for formatted date strings
+            trends_data['Formatted Date'] = trends_data['Parsed Date'].dt.strftime('%Y-%m-%d')
+
+            # Reset the index
+            trends_data.reset_index(inplace=True)
+
+            # Set 'Formatted Date' column as the index
+            trends_data.set_index('Formatted Date', inplace=True)
+
+            # Create pivot table with counts for Category, Sub-Category, and Parsed Date
+            if grouping_option == 'Date':
+                pivot = trends_data.pivot_table(
+                    index=['Category', 'Sub-Category'],
+                    columns='Parsed Date',  # Use the column name directly
+                    values='Sentiment',
+                    aggfunc='count',
+                    fill_value=0
+                )
+            elif grouping_option == 'Week':
+                pivot = trends_data.pivot_table(
+                    index=['Category', 'Sub-Category'],
+                    columns=pd.Grouper(key='Parsed Date', freq='W-SUN'),
+                    values='Sentiment',
+                    aggfunc='count',
+                    fill_value=0
+                )
+                # Shift the pivot table columns by -1 week
+                pivot.columns = pivot.columns - pd.DateOffset(weeks=1)
+            elif grouping_option == 'Month':
+                pivot = trends_data.pivot_table(
+                    index=['Category', 'Sub-Category'],
+                    columns=pd.Grouper(key='Parsed Date', freq='M'),
+                    values='Sentiment',
+                    aggfunc='count',
+                    fill_value=0
+                )
+            elif grouping_option == 'Quarter':
+                pivot = trends_data.pivot_table(
+                    index=['Category', 'Sub-Category'],
+                    columns=pd.Grouper(key='Parsed Date', freq='Q'),
+                    values='Sentiment',
+                    aggfunc='count',
+                    fill_value=0
+                )
+
+            # Format column headers as date strings in 'YYYY-MM-DD' format
+            pivot.columns = pivot.columns.strftime('%Y-%m-%d')
+
+
+            pivot.to_excel(writer, sheet_name='Trends by ' + grouping_option, merge_cells=False)
+
+            pivot1.to_excel(writer, sheet_name='Categories', merge_cells=False)
+            pivot2.to_excel(writer, sheet_name='Subcategories', merge_cells=False)
+
 
         excel_file.seek(0)
         b64 = base64.b64encode(excel_file.read()).decode()
