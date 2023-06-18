@@ -10,8 +10,10 @@ import base64
 from io import BytesIO
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 import seaborn as sns
 import datetime
+import numpy as np
 
 # Specify download directory for NLTK data
 nltk.download('stopwords', download_dir='/home/appuser/nltk_data')
@@ -65,9 +67,10 @@ if uploaded_file is not None:
     feedback_data = pd.read_csv(BytesIO(csv_data))
     comment_column = st.selectbox("Select the column containing the comments", feedback_data.columns.tolist())
     date_column = st.selectbox("Select the column containing the dates", feedback_data.columns.tolist())
+    grouping_option = st.radio("Select how to group the dates", ["Date", "Week", "Month", "Quarter"])
     process_button = st.button("Process Feedback")
 
-    if comment_column is not None and date_column is not None and process_button:
+    if comment_column is not None and date_column is not None and grouping_option is not None and process_button:
         # Define keyword-based categories
         default_categories = {
             'Website Usability': ['user experience', 'navigation', 'interface', 'design', 'loading speed', 'search functionality', 'mobile responsiveness', 'compatibility', 'site organization', 'site performance', 'page loading time', 'difficult to navigate', 'poorly organized', 'difficult to find information', 'not user-friendly', 'hard to use'],
@@ -147,7 +150,7 @@ if uploaded_file is not None:
 
         # Create a new DataFrame with extended columns
         trends_data = pd.DataFrame(categorized_comments, columns=headers)
-        trends_data['Parsed Date'] = trends_data['Parsed Date'].apply(lambda x: x.split(' ')[0] if isinstance(x, str) else None)
+        trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce').dt.date
 
 
         # Rename duplicate column names
@@ -165,93 +168,103 @@ if uploaded_file is not None:
         # Display pivot table with counts for Category, Sub-Category, and Parsed Date
         st.subheader("All Categories Trends")
 
-#Area chart for emerging issues
-        def calculate_recent_start(max_date, min_date):
-            unique_dates = trends_data['Parsed Date'].nunique()
-            if unique_dates <= 2:
-                return min_date
-            else:
-                days_diff = (max_date - min_date).days
-                if days_diff <= 7:
-                    return min_date
-                elif days_diff <= 30:
-                    return max_date - pd.DateOffset(weeks=1)
-                elif days_diff <= 365:
-                    return max_date - pd.DateOffset(months=1)
-                else:
-                    return max_date - pd.DateOffset(years=1)
-
-
         # Convert 'Parsed Date' into datetime format if it's not
-        trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'])
+        trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce')
 
-        # Define the recent period start date based on the time span
-        recent_start = calculate_recent_start(trends_data['Parsed Date'].max(), trends_data['Parsed Date'].min())
 
-        # Filter the trends_data for the recent period
-        recent_data = trends_data[trends_data['Parsed Date'] >= recent_start]
+
+
         # Create pivot table with counts for Category, Sub-Category, and Parsed Date
-        pivot = trends_data.pivot_table(
-            index=['Category', 'Sub-Category'],
-            columns=trends_data['Parsed Date'].dt.date,  # Use dt.date to extract the date without the timestamp
-            values='Sentiment',
-            aggfunc='count',
-            fill_value=0
-        )
+        if grouping_option == 'Date':
+            pivot = trends_data.pivot_table(
+                index=['Category', 'Sub-Category'],
+                columns=pd.Grouper(key='Parsed Date', freq='D'),
+                values='Sentiment',
+                aggfunc='count',
+                fill_value=0
+            )
+
+        elif grouping_option == 'Week':
+            pivot = trends_data.pivot_table(
+                index=['Category', 'Sub-Category'],
+                columns=pd.Grouper(key='Parsed Date', freq='W'),  # Adjusted to start week on Sunday
+                values='Sentiment',
+                aggfunc='count',
+                fill_value=0
+            )
+            # Shift the pivot table columns by -1 week
+            pivot.columns = pivot.columns - pd.DateOffset(weeks=1)
+
+        elif grouping_option == 'Month':
+            pivot = trends_data.pivot_table(
+                index=['Category', 'Sub-Category'],
+                columns=pd.Grouper(key='Parsed Date', freq='M'),
+                values='Sentiment',
+                aggfunc='count',
+                fill_value=0
+            )
+        elif grouping_option == 'Quarter':
+            pivot = trends_data.pivot_table(
+                index=['Category', 'Sub-Category'],
+                columns=pd.Grouper(key='Parsed Date', freq='Q'),
+                values='Sentiment',
+                aggfunc='count',
+                fill_value=0
+            )
+
+        pivot.columns = pivot.columns.astype(str)  # Convert column labels to strings
+
         # Sort the pivot table rows based on the highest count
         pivot = pivot.loc[pivot.sum(axis=1).sort_values(ascending=False).index]
 
         # Sort the pivot table columns in descending order based on the most recent date
         pivot = pivot[sorted(pivot.columns, reverse=True)]
 
-        # Calculate the time span between the max_date and min_date
-        days_diff = (recent_data['Parsed Date'].max() - recent_data['Parsed Date'].min()).days
-
-        # Determine the appropriate time unit based on the time span
-        if days_diff >= 365:  # If the time span is at least a year, use months as the time unit
-            time_unit = 'months'
-        elif days_diff >= 30:  # If the time span is at least a month, use weeks as the time unit
-            time_unit = 'weeks'
-        else:  # Otherwise, use days as the time unit
-            time_unit = 'days'
-
-        # Set the date tick format based on the time unit
-        if time_unit == 'months':
-            date_tick_format = '%Y-%m'
-        elif time_unit == 'weeks':
-            date_tick_format = '%Y-%m-%d'
-        else:
-            date_tick_format = '%Y-%m-%d'
-
-        # Filter the trends_data for the recent period
-        recent_data = trends_data[trends_data['Parsed Date'] >= recent_start]
-
-        # Create a line chart for the top 5 trends over time
+        # Create a line chart for the top 5 trends over time with the selected grouping option
         plt.figure(figsize=(10, 6))
+
         for sub_category in pivot.head(5).index:
-            # Get the dates with non-zero counts for the sub-category
-            non_zero_dates = pivot.columns[pivot.loc[sub_category] > 0]
+            # Get the dates with non-zero counts for the sub-category and the selected grouping option
+            non_zero_dates = pivot.columns[(pivot.loc[sub_category] > 0) & (pivot.columns.isin(pivot.columns))]
             # Get the corresponding data points for the non-zero dates
             non_zero_counts = pivot.loc[sub_category, non_zero_dates]
-            # Create a list of evenly spaced integers for the x-axis
-            x_ticks = range(len(non_zero_dates))
-            # Plot the line for the sub-category with the evenly spaced x-axis ticks
-            plt.plot(x_ticks, non_zero_counts, marker='o', label=sub_category)
+            # Plot the line for the sub-category
+            plt.plot(non_zero_dates, non_zero_counts, marker='o', label=sub_category)
 
         plt.xlabel('Date')
         plt.ylabel('Count')
         plt.title('Top 5 Trends Over Time')
 
-        # Set the x-axis ticks and labels to match all available dates
-        plt.xticks(range(len(pivot.columns)), pivot.columns, rotation=45)
+        # Set the x-axis ticks and labels based on the selected grouping option
+        if grouping_option == 'Date':
+            plt.xticks(rotation=45)
+
+        elif grouping_option == 'Week':
+            week_dates = pd.date_range(pivot.columns.min(), pivot.columns.max(), freq='W-SUN')
+            week_dates = week_dates[week_dates.isin(pivot.columns)]
+            week_numbers = [date.strftime('%Y-%m-%d') for date in week_dates]
+            week_dates_str = [date.strftime('%Y-%m-%d') for date in week_dates]
+            plt.xticks(week_dates_str, week_numbers, rotation=45)
+
+        elif grouping_option == 'Month':
+            month_dates = pd.date_range(pivot.columns.min(), pivot.columns.max(), freq='M')
+            month_dates = month_dates[month_dates.isin(pivot.columns)]
+            month_numbers = [date.strftime('%Y-%m') for date in month_dates]
+            month_dates_str = [date.strftime('%Y-%m-%d') for date in month_dates]
+            plt.xticks(month_dates_str, month_numbers, rotation=45)
+
+        elif grouping_option == 'Quarter':
+            quarter_dates = pd.date_range(pivot.columns.min(), pivot.columns.max(), freq='Q')
+            quarter_dates = quarter_dates[quarter_dates.isin(pivot.columns)]
+            quarter_labels = [f'Q{date.quarter}\n{date.year}' for date in quarter_dates]
+            quarter_dates_str = [date.strftime('%Y-%m-%d') for date in quarter_dates]
+            plt.xticks(quarter_dates_str, quarter_labels, rotation=45)
 
         plt.legend()
         plt.tight_layout()
 
         # Display the line chart
         st.pyplot(plt.gcf())
-
-
 
         # Display pivot table with counts for Category, Sub-Category, and Parsed Date
         st.dataframe(pivot)
@@ -289,8 +302,6 @@ if uploaded_file is not None:
         st.subheader("Sub-Category vs Sentiment and Survey Count")
         st.dataframe(pivot2)
 
-        # Convert 'Parsed Date' to datetime type
-        trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce')
 
         # Format 'Parsed Date' as string with 'YYYY-MM-DD' format
         trends_data['Parsed Date'] = trends_data['Parsed Date'].dt.strftime('%Y-%m-%d').fillna('')
