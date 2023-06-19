@@ -3,7 +3,5 @@ pandas
 nltk
 sentence-transformers
 scikit-learn
-matplotlib
-seaborn
 numpy
 openpyxl
