@@ -189,13 +189,11 @@ if uploaded_file is not None:
         elif grouping_option == 'Week':
             pivot = trends_data.pivot_table(
                 index=['Category', 'Sub-Category'],
-                columns=pd.Grouper(key='Parsed Date', freq='W-SUN'),  # Adjusted to start week on Sunday
+                columns=pd.Grouper(key='Parsed Date', freq='W-SUN', closed='left', label='left'),
                 values='Sentiment',
                 aggfunc='count',
                 fill_value=0
             )
-            # Shift the pivot table columns by -1 week
-            pivot.columns = pivot.columns - pd.DateOffset(weeks=1)
 
         elif grouping_option == 'Month':
             pivot = trends_data.pivot_table(
@@ -338,15 +336,15 @@ if uploaded_file is not None:
                     fill_value=0
                 )
             elif grouping_option == 'Week':
+                st.write(trends_data)
                 pivot = trends_data.pivot_table(
                     index=['Category', 'Sub-Category'],
-                    columns=pd.Grouper(key='Parsed Date', freq='W-SUN'),
+                    columns=pd.Grouper(key='Parsed Date', freq='W-SUN', closed='left', label='left'),
                     values='Sentiment',
                     aggfunc='count',
                     fill_value=0
                 )
-                # Shift the pivot table columns by -1 week
-                pivot.columns = pivot.columns - pd.DateOffset(weeks=1)
+
             elif grouping_option == 'Month':
                 pivot = trends_data.pivot_table(
                     index=['Category', 'Sub-Category'],
@@ -405,4 +403,3 @@ if uploaded_file is not None:
         b64 = base64.b64encode(excel_file.read()).decode()
         href = f'<a href="data:application/octet-stream;base64,{b64}" download="feedback_trends.xlsx">Download Excel File</a>'
         st.markdown(href, unsafe_allow_html=True)
-
