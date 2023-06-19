@@ -8,8 +8,6 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import base64
 from io import BytesIO
-import matplotlib.pyplot as plt
-import seaborn as sns
 import datetime
 import numpy as np
 import openpyxl
@@ -21,12 +19,19 @@ nltk.download('punkt', download_dir='/home/appuser/nltk_data', quiet=True)  # Ad
 nltk.data.path.append('/home/appuser/nltk_data')
 
 # Initialize BERT model
-model = SentenceTransformer('all-MiniLM-L6-v2')
+@st.cache_resource  # Cache the BERT model as a resource
+def initialize_bert_model():
+    return SentenceTransformer('all-MiniLM-L6-v2')
 
 # Create a dictionary to store precomputed embeddings
-keyword_embeddings = {}
+def compute_keyword_embeddings(keywords):
+    model = initialize_bert_model()
+    keyword_embeddings = {}
+    for keyword in keywords:
+        keyword_embeddings[keyword] = model.encode([keyword])[0]
+    return keyword_embeddings
 
-# Preprocessing function
+# Function to preprocess the text
 def preprocess_text(text):
     # Remove unnecessary characters
     text = str(text).strip().lower()
@@ -39,20 +44,49 @@ def preprocess_text(text):
 
     return preprocessed_text
 
-# Perform sentiment analysis
+# Function to compute semantic similarity
+def compute_semantic_similarity(embedding1, embedding2):
+    return cosine_similarity([embedding1], [embedding2])[0][0]
+
+# Function to perform sentiment analysis
 def perform_sentiment_analysis(text):
-    sia = SentimentIntensityAnalyzer()
-    sentiment_scores = sia.polarity_scores(text)
+    analyzer = SentimentIntensityAnalyzer()
+    sentiment_scores = analyzer.polarity_scores(text)
     compound_score = sentiment_scores['compound']
     return compound_score
 
-# Compute semantic similarity
-def compute_semantic_similarity(keyword_embedding, comment_embedding):
-    similarity = cosine_similarity([keyword_embedding], [comment_embedding])
-    return similarity[0][0]
-
 # Streamlit interface
 st.title("Feedback Categorization")
+
+# Edit categories and keywords
+st.sidebar.header("Edit Categories")
+default_categories = {
+    'Website Usability': ['user experience', 'navigation', 'interface', 'design', 'loading speed', 'search functionality', 'mobile responsiveness', 'compatibility', 'site organization', 'site performance', 'page loading time', 'difficult to navigate', 'poorly organized', 'difficult to find information', 'not user-friendly', 'hard to use'],
+    'Product Quality': ['quality', 'defects', 'durability', 'reliability', 'performance', 'features', 'accuracy', 'packaging', 'product condition'],
+    'Shipping and Delivery': ['delivery', 'shipping', 'shipping time', 'tracking', 'package condition', 'courier', 'fulfillment', 'damaged during shipping', 'order tracking'],
+    'Customer Support': ['support service', 'support response time', 'communication', 'issue resolution', 'knowledgeability', 'helpfulness', 'replacement', 'refund', 'customer service experience'],
+    'Order Processing': ['payment', 'stock availability', 'order confirmation', 'cancellation', 'order customization', 'order accuracy'],
+    'Product Selection': ['product customization', 'customization difficulties', 'product variety', 'product options', 'finding the right product', 'product suitability'],
+    'Price Change in Cart': ['promotions', 'price discrepancy', 'discounts missing', 'rebate missing', 'price change in cart', 'price change at checkout', 'trade-in discount', 'free memory upgrade', 'discount program', 'EPP', 'employee discount'],
+    'Product Information': ['specifications', 'descriptions', 'images', 'product details', 'accurate information', 'misleading information', 'product data'],
+    'Returns and Refunds': ['returns', 'refunds', 'return policy', 'refund process', 'return condition', 'return shipping', 'return authorization'],
+    'Warranty and Support': ['warranty', 'technical support', 'repair', 'technical assistance', 'warranty claim', 'product support'],
+    'Website Security': ['security', 'privacy', 'data protection', 'secure checkout', 'account security', 'payment security'],
+    'Website Performance': ['uptime', 'site speed', 'loading time', 'server stability', 'site crashes', 'website availability'],
+    'Accessibility': ['accessibility', 'inclusive design', 'special needs', 'assistive technologies', 'screen reader compatibility', 'website usability for disabled users'],
+    'Unwanted Emails': ['spam emails', 'email subscriptions', 'unsubscribe', 'email preferences', 'inbox management', 'email marketing'],
+}
+categories = {}
+for category, keywords in default_categories.items():
+    category_name = st.sidebar.text_input(f"{category} Category", value=category)
+    category_keywords = st.sidebar.text_area(f"Keywords for {category}", value="\n".join(keywords))
+    categories[category_name] = category_keywords.split("\n")
+
+st.sidebar.subheader("Add or Modify Categories")
+new_category_name = st.sidebar.text_input("New Category Name")
+new_category_keywords = st.sidebar.text_area(f"Keywords for {new_category_name}")
+if new_category_name and new_category_keywords:
+    categories[new_category_name] = new_category_keywords.split("\n")
 
 # File upload
 uploaded_file = st.file_uploader("Upload CSV file", type="csv")
@@ -60,6 +94,8 @@ uploaded_file = st.file_uploader("Upload CSV file", type="csv")
 # Select the column containing the comments
 comment_column = None
 date_column = None
+categorized_comments = []  # Initialize categorized_comments list
+sentiments = []  # Initialize sentiments list
 if uploaded_file is not None:
     # Read customer feedback from uploaded file
     csv_data = uploaded_file.read()
@@ -70,54 +106,15 @@ if uploaded_file is not None:
     process_button = st.button("Process Feedback")
 
     if comment_column is not None and date_column is not None and grouping_option is not None and process_button:
-        # Define keyword-based categories
-        default_categories = {
-            'Website Usability': ['user experience', 'navigation', 'interface', 'design', 'loading speed', 'search functionality', 'mobile responsiveness', 'compatibility', 'site organization', 'site performance', 'page loading time', 'difficult to navigate', 'poorly organized', 'difficult to find information', 'not user-friendly', 'hard to use'],
-            'Product Quality': ['quality', 'defects', 'durability', 'reliability', 'performance', 'features', 'accuracy', 'packaging', 'product condition'],
-            'Shipping and Delivery': ['delivery', 'shipping', 'shipping time', 'tracking', 'package condition', 'courier', 'fulfillment', 'damaged during shipping', 'order tracking'],
-            'Customer Support': ['support service', 'support response time', 'communication', 'issue resolution', 'knowledgeability', 'helpfulness', 'replacement', 'refund', 'customer service experience'],
-            'Order Processing': ['payment', 'stock availability', 'order confirmation', 'cancellation', 'order customization', 'order accuracy'],
-            'Product Selection': ['product customization', 'customization difficulties', 'product variety', 'product options', 'finding the right product', 'product suitability'],
-            'Price Change in Cart': ['promotions', 'price discrepancy', 'discounts missing', 'rebate missing', 'price change in cart', 'price change at checkout', 'trade-in discount', 'free memory upgrade', 'discount program', 'EPP', 'employee discount'],
-            'Product Information': ['specifications', 'descriptions', 'images', 'product details', 'accurate information', 'misleading information', 'product data'],
-            'Returns and Refunds': ['returns', 'refunds', 'return policy', 'refund process', 'return condition', 'return shipping', 'return authorization'],
-            'Warranty and Support': ['warranty', 'technical support', 'repair', 'technical assistance', 'warranty claim', 'product support'],
-            'Website Security': ['security', 'privacy', 'data protection', 'secure checkout', 'account security', 'payment security'],
-            'Website Performance': ['uptime', 'site speed', 'loading time', 'server stability', 'site crashes', 'website availability'],
-            'Accessibility': ['accessibility', 'inclusive design', 'special needs', 'assistive technologies', 'screen reader compatibility', 'website usability for disabled users'],
-            'Unwanted Emails': ['spam emails', 'email subscriptions', 'unsubscribe', 'email preferences', 'inbox management', 'email marketing'],
-        }
-
-        # Edit categories and keywords
-        st.sidebar.header("Edit Categories")
-        categories = {}
-        for category, keywords in default_categories.items():
-            category_name = st.sidebar.text_input(f"{category} Category", value=category)
-            category_keywords = st.sidebar.text_area(f"Keywords for {category}", value="\n".join(keywords))
-            categories[category_name] = category_keywords.split("\n")
-
-        st.sidebar.subheader("Add or Modify Categories")
-        new_category_name = st.sidebar.text_input("New Category Name")
-        new_category_keywords = st.sidebar.text_area(f"Keywords for {new_category_name}")
-        if new_category_name and new_category_keywords:
-            categories[new_category_name] = new_category_keywords.split("\n")
-
-        # Initialize lists to store categorized comments and sentiments
-        categorized_comments = []
-        sentiments = []
-
-        # Pre-compute embeddings for all keywords
-        for category_name, keywords in categories.items():
-            for keyword in keywords:
-                keyword_embeddings[keyword] = model.encode([keyword])[0]
+        # Compute keyword embeddings
+        keyword_embeddings = compute_keyword_embeddings([keyword for keywords in categories.values() for keyword in keywords])
 
         # Process each comment
         with st.spinner('Processing feedback...'):
             for index, row in feedback_data.iterrows():
                 preprocessed_comment = preprocess_text(row[comment_column])
-                comment_embedding = model.encode([preprocessed_comment])[0]  # Compute the comment embedding once
+                comment_embedding = initialize_bert_model().encode([preprocessed_comment])[0]  # Compute the comment embedding once
                 sentiment_score = perform_sentiment_analysis(preprocessed_comment)
-
                 category = 'Other'
                 sub_category = 'Other'
                 best_match_score = float('-inf')  # Initialized to negative infinity
@@ -141,6 +138,7 @@ if uploaded_file is not None:
                 categorized_comments.append(row_extended)
                 sentiments.append(sentiment_score)
 
+
         # Generate trends and insights
         st.success('Done!')
         existing_columns = feedback_data.columns.tolist()
@@ -150,7 +148,6 @@ if uploaded_file is not None:
         # Create a new DataFrame with extended columns
         trends_data = pd.DataFrame(categorized_comments, columns=headers)
         trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce').dt.date
-
 
         # Rename duplicate column names
         trends_data = trends_data.loc[:, ~trends_data.columns.duplicated()]
@@ -217,86 +214,52 @@ if uploaded_file is not None:
         pivot = pivot[sorted(pivot.columns, reverse=True)]
 
         # Create a line chart for the top 5 trends over time with the selected grouping option
-        plt.figure(figsize=(10, 6))
+        # First, reset the index to have 'Category' and 'Sub-Category' as columns
+        pivot_reset = pivot.reset_index()
 
-        for sub_category in pivot.head(5).index:
-            # Get the dates with non-zero counts for the sub-category and the selected grouping option
-            non_zero_dates = pivot.columns[(pivot.loc[sub_category] > 0) & (pivot.columns.isin(pivot.columns))]
-            # Get the corresponding data points for the non-zero dates
-            non_zero_counts = pivot.loc[sub_category, non_zero_dates]
-            # Plot the line for the sub-category
-            plt.plot(non_zero_dates, non_zero_counts, marker='o', label=sub_category)
+        # Then, set 'Sub-Category' as the new index
+        pivot_reset = pivot_reset.set_index('Sub-Category')
 
-        plt.xlabel('Date')
-        plt.ylabel('Count')
-        plt.title('Top 5 Trends Over Time')
+        # Drop the 'Category' column
+        pivot_reset = pivot_reset.drop(columns=['Category'])
 
-        # Set the x-axis ticks and labels based on the selected grouping option
-        if grouping_option == 'Date':
-            plt.xticks(rotation=45)
+        # Now, get the top 5 trends
+        top_5_trends = pivot_reset.head(5).T  # Transpose the DataFrame to have dates as index
 
-        elif grouping_option == 'Week':
-            week_dates = pd.date_range(pivot.columns.min(), pivot.columns.max(), freq='W-SUN')
-            week_dates = week_dates[week_dates.isin(pivot.columns)]
-            week_numbers = [date.strftime('%Y-%m-%d') for date in week_dates]
-            week_dates_str = [date.strftime('%Y-%m-%d') for date in week_dates]
-            plt.xticks(week_dates_str, week_numbers, rotation=45)
-
-        elif grouping_option == 'Month':
-            month_dates = pd.date_range(pivot.columns.min(), pivot.columns.max(), freq='M')
-            month_dates = month_dates[month_dates.isin(pivot.columns)]
-            month_numbers = [date.strftime('%Y-%m') for date in month_dates]
-            month_dates_str = [date.strftime('%Y-%m-%d') for date in month_dates]
-            plt.xticks(month_dates_str, month_numbers, rotation=45)
-
-        elif grouping_option == 'Quarter':
-            quarter_dates = pd.date_range(pivot.columns.min(), pivot.columns.max(), freq='Q')
-            quarter_dates = quarter_dates[quarter_dates.isin(pivot.columns)]
-            quarter_labels = [f'Q{date.quarter}\n{date.year}' for date in quarter_dates]
-            quarter_dates_str = [date.strftime('%Y-%m-%d') for date in quarter_dates]
-            plt.xticks(quarter_dates_str, quarter_labels, rotation=45)
-
-        plt.legend()
-        plt.tight_layout()
-
-        # Display the line chart
-        st.pyplot(plt.gcf())
+        # Create and display a line chart for the top 5 trends
+        st.line_chart(top_5_trends)
 
         # Display pivot table with counts for Category, Sub-Category, and Parsed Date
         st.dataframe(pivot)
 
         # Create pivot tables with counts
-        pivot1 = trends_data.pivot_table(index='Category', values='Sentiment', aggfunc=['mean', 'count'])
+        pivot1 = trends_data.groupby('Category')['Sentiment'].agg(['mean', 'count'])
         pivot1.columns = ['Average Sentiment', 'Survey Count']
         pivot1 = pivot1.sort_values('Survey Count', ascending=False)
 
-        pivot2 = trends_data.pivot_table(index=['Category', 'Sub-Category'], values='Sentiment', aggfunc=['mean', 'count'])
+        pivot2 = trends_data.groupby(['Category', 'Sub-Category'])['Sentiment'].agg(['mean', 'count'])
         pivot2.columns = ['Average Sentiment', 'Survey Count']
         pivot2 = pivot2.sort_values('Survey Count', ascending=False)
 
+        # Reset index for pivot2
+        pivot2_reset = pivot2.reset_index()
+
+        # Set 'Sub-Category' as the index
+        pivot2_reset.set_index('Sub-Category', inplace=True)
+
         # Create and display a bar chart for pivot1 with counts
-        plt.figure(figsize=(10, 6))
-        sns.barplot(x=pivot1.index, y=pivot1['Survey Count'])
-        plt.title("Survey Count by Category")
-        plt.xticks(rotation=90)
-        plt.tight_layout()
-        st.pyplot(plt.gcf())
+        st.bar_chart(pivot1['Survey Count'])
 
         # Display pivot table with counts for Category
         st.subheader("Category vs Sentiment and Survey Count")
         st.dataframe(pivot1)
 
         # Create and display a bar chart for pivot2 with counts
-        plt.figure(figsize=(10, 6))
-        sns.barplot(x=pivot2.index.get_level_values(1), y=pivot2['Survey Count'])
-        plt.title("Survey Count by Sub-Category")
-        plt.xticks(rotation=90)
-        plt.tight_layout()
-        st.pyplot(plt.gcf())
+        st.bar_chart(pivot2_reset['Survey Count'])
 
         # Display pivot table with counts for Sub-Category
         st.subheader("Sub-Category vs Sentiment and Survey Count")
-        st.dataframe(pivot2)
+        st.dataframe(pivot2_reset)
 
 
         # Format 'Parsed Date' as string with 'YYYY-MM-DD' format
@@ -373,12 +336,10 @@ if uploaded_file is not None:
             # Format column headers as date strings in 'YYYY-MM-DD' format
             pivot.columns = pivot.columns.strftime('%Y-%m-%d')
 
-
             pivot.to_excel(writer, sheet_name='Trends by ' + grouping_option, merge_cells=False)
 
             pivot1.to_excel(writer, sheet_name='Categories', merge_cells=False)
             pivot2.to_excel(writer, sheet_name='Subcategories', merge_cells=False)
-
 
         excel_file.seek(0)
         b64 = base64.b64encode(excel_file.read()).decode()
