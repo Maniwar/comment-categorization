@@ -33,8 +33,8 @@ def compute_keyword_embeddings(keywords):
 
 # Function to preprocess the text
 def preprocess_text(text):
-    # Remove unnecessary characters
-    text = str(text).strip().lower()
+    # Remove unnecessary characters and weird characters
+    text = text.encode('ascii', 'ignore').decode('utf-8')
 
     # Remove stopwords
     stop_words = set(stopwords.words('english'))
@@ -57,6 +57,7 @@ def perform_sentiment_analysis(text):
 
 # Streamlit interface
 st.title("Feedback Categorization")
+
 
 # Edit categories and keywords
 st.sidebar.header("Edit Categories")
