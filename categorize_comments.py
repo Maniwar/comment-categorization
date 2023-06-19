@@ -261,6 +261,28 @@ if uploaded_file is not None:
         st.subheader("Sub-Category vs Sentiment and Survey Count")
         st.dataframe(pivot2_reset)
 
+        # Display top 5 most recent comments for each of the 5 top subcategories
+        st.subheader("Top 5 Most Recent Comments for Each Top Subcategory")
+
+        # Get the top 5 subcategories based on the survey count
+        top_subcategories = pivot2_reset.head(5).index.tolist()
+
+        # Iterate over the top subcategories
+        for subcategory in top_subcategories:
+            st.subheader(subcategory)
+
+            # Filter the trends_data DataFrame for the current subcategory
+            filtered_data = trends_data[trends_data['Sub-Category'] == subcategory]
+
+            # Get the top 5 most recent comments for the current subcategory
+            top_comments = filtered_data.nlargest(5, 'Parsed Date')[['Parsed Date', comment_column]]
+
+            # Format the parsed date to display only the date part
+            top_comments['Parsed Date'] = top_comments['Parsed Date'].dt.date.astype(str)
+
+            # Display the top comments as a table
+            st.table(top_comments)
+
 
         # Format 'Parsed Date' as string with 'YYYY-MM-DD' format
         trends_data['Parsed Date'] = trends_data['Parsed Date'].dt.strftime('%Y-%m-%d').fillna('')
@@ -282,8 +304,8 @@ if uploaded_file is not None:
 
         # Save DataFrame and pivot tables to Excel
         excel_file = BytesIO()
-        with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
-            trends_data.to_excel(writer, sheet_name='Feedback Trends and Insights', index=False)
+        with pd.ExcelWriter(excel_file, engine='openpyxl', mode='xlsx') as excel_writer:
+            trends_data.to_excel(excel_writer, sheet_name='Feedback Trends and Insights', index=False)
 
             # Convert 'Parsed Date' column to datetime type
             trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce')
@@ -301,7 +323,7 @@ if uploaded_file is not None:
             if grouping_option == 'Date':
                 pivot = trends_data.pivot_table(
                     index=['Category', 'Sub-Category'],
-                    columns='Parsed Date',  # Use the column name directly
+                    columns='Parsed Date',
                     values='Sentiment',
                     aggfunc='count',
                     fill_value=0
@@ -336,10 +358,39 @@ if uploaded_file is not None:
             # Format column headers as date strings in 'YYYY-MM-DD' format
             pivot.columns = pivot.columns.strftime('%Y-%m-%d')
 
-            pivot.to_excel(writer, sheet_name='Trends by ' + grouping_option, merge_cells=False)
+            pivot.to_excel(excel_writer, sheet_name='Trends by ' + grouping_option, merge_cells=False)
+            pivot1.to_excel(excel_writer, sheet_name='Categories', merge_cells=False)
+            pivot2.to_excel(excel_writer, sheet_name='Subcategories', merge_cells=False)
 
-            pivot1.to_excel(writer, sheet_name='Categories', merge_cells=False)
-            pivot2.to_excel(writer, sheet_name='Subcategories', merge_cells=False)
+            # Write example comments to a single sheet
+            example_comments_sheet = excel_writer.book.create_sheet(title='Example Comments')
+
+            # Write each table of example comments to the sheet
+            for subcategory in top_subcategories:
+                filtered_data = trends_data[trends_data['Sub-Category'] == subcategory]
+                top_comments = filtered_data.nlargest(5, 'Parsed Date')[['Parsed Date', comment_column]]
+                # Calculate the starting row for each table
+                start_row = (top_subcategories.index(subcategory) * 8) + 1
+
+                # Write the subcategory as a merged cell
+                example_comments_sheet.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=2)
+                example_comments_sheet.cell(row=start_row, column=1, value=subcategory)
+                example_comments_sheet.cell(row=start_row, column=3, value='')  # Empty cell for spacing
+
+                # Write the table headers
+                example_comments_sheet.cell(row=start_row+1, column=1, value='Date')
+                example_comments_sheet.cell(row=start_row+1, column=2, value=comment_column)
+
+                # Write the table data
+                for i, (_, row) in enumerate(top_comments.iterrows(), start=start_row+2):
+                    example_comments_sheet.cell(row=i, column=1, value=row['Parsed Date'])
+                    example_comments_sheet.cell(row=i, column=2, value=row[comment_column])
+
+            # Get the underlying workbook object
+            workbook = excel_writer.book
+
+            # Save the Excel file using the file-like object
+            workbook.save(excel_file)
 
         excel_file.seek(0)
         b64 = base64.b64encode(excel_file.read()).decode()
