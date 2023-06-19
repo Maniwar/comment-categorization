@@ -58,7 +58,6 @@ def perform_sentiment_analysis(text):
 # Streamlit interface
 st.title("Feedback Categorization")
 
-
 # Edit categories and keywords
 st.sidebar.header("Edit Categories")
 default_categories = {
@@ -95,8 +94,8 @@ uploaded_file = st.file_uploader("Upload CSV file", type="csv")
 # Select the column containing the comments
 comment_column = None
 date_column = None
-categorized_comments = []  # Initialize categorized_comments list
-sentiments = []  # Initialize sentiments list
+trends_data = None
+
 if uploaded_file is not None:
     # Read customer feedback from uploaded file
     csv_data = uploaded_file.read()
@@ -107,11 +106,17 @@ if uploaded_file is not None:
     process_button = st.button("Process Feedback")
 
     if comment_column is not None and date_column is not None and grouping_option is not None and process_button:
-        # Compute keyword embeddings
-        keyword_embeddings = compute_keyword_embeddings([keyword for keywords in categories.values() for keyword in keywords])
+        # Check if the processed DataFrame is already cached
+        @st.cache_data
+        def process_feedback_data(feedback_data, comment_column, date_column, categories):
+            # Compute keyword embeddings
+            keyword_embeddings = compute_keyword_embeddings([keyword for keywords in categories.values() for keyword in keywords])
 
-        # Process each comment
-        with st.spinner('Processing feedback...'):
+            # Initialize lists for categorized_comments and sentiments
+            categorized_comments = []
+            sentiments = []
+
+            # Process each comment
             for index, row in feedback_data.iterrows():
                 preprocessed_comment = preprocess_text(row[comment_column])
                 comment_embedding = initialize_bert_model().encode([preprocessed_comment])[0]  # Compute the comment embedding once
@@ -139,28 +144,31 @@ if uploaded_file is not None:
                 categorized_comments.append(row_extended)
                 sentiments.append(sentiment_score)
 
+            # Create a new DataFrame with extended columns
+            existing_columns = feedback_data.columns.tolist()
+            additional_columns = [comment_column, 'Category', 'Sub-Category', 'Sentiment', 'Parsed Date']
+            headers = existing_columns + additional_columns
+            trends_data = pd.DataFrame(categorized_comments, columns=headers)
+            trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce').dt.date
 
-        # Generate trends and insights
-        st.success('Done!')
-        existing_columns = feedback_data.columns.tolist()
-        additional_columns = [comment_column, 'Category', 'Sub-Category', 'Sentiment', 'Parsed Date']
-        headers = existing_columns + additional_columns
+            # Rename duplicate column names
+            trends_data = trends_data.loc[:, ~trends_data.columns.duplicated()]
+            duplicate_columns = set([col for col in trends_data.columns if trends_data.columns.tolist().count(col) > 1])
+            for column in duplicate_columns:
+                column_indices = [i for i, col in enumerate(trends_data.columns) if col == column]
+                for i, idx in enumerate(column_indices[1:], start=1):
+                    trends_data.columns.values[idx] = f"{column}_{i}"
 
-        # Create a new DataFrame with extended columns
-        trends_data = pd.DataFrame(categorized_comments, columns=headers)
-        trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce').dt.date
+            return trends_data
 
-        # Rename duplicate column names
-        trends_data = trends_data.loc[:, ~trends_data.columns.duplicated()]
-        duplicate_columns = set([col for col in trends_data.columns if trends_data.columns.tolist().count(col) > 1])
-        for column in duplicate_columns:
-            column_indices = [i for i, col in enumerate(trends_data.columns) if col == column]
-            for i, idx in enumerate(column_indices[1:], start=1):
-                trends_data.columns.values[idx] = f"{column}_{i}"
+        # Process feedback data and cache the result
+        trends_data = process_feedback_data(feedback_data, comment_column, date_column, categories)
 
         # Display trends and insights
-        st.title("Feedback Trends and Insights")
-        st.dataframe(trends_data)
+        if trends_data is not None:
+            st.title("Feedback Trends and Insights")
+            st.dataframe(trends_data)
+
 
         # Display pivot table with counts for Category, Sub-Category, and Parsed Date
         st.subheader("All Categories Trends")
@@ -397,3 +405,4 @@ if uploaded_file is not None:
         b64 = base64.b64encode(excel_file.read()).decode()
         href = f'<a href="data:application/octet-stream;base64,{b64}" download="feedback_trends.xlsx">Download Excel File</a>'
         st.markdown(href, unsafe_allow_html=True)
+
