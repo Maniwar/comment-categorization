@@ -56,7 +56,7 @@ def perform_sentiment_analysis(text):
     return compound_score
 
 # Streamlit interface
-st.title("Feedback Categorization")
+st.title("👨‍💻 Feedback Categorization")
 
 # Edit categories and keywords
 st.sidebar.header("Edit Categories")
