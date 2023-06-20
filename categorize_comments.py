@@ -336,7 +336,6 @@ if uploaded_file is not None:
                     fill_value=0
                 )
             elif grouping_option == 'Week':
-                st.write(trends_data)
                 pivot = trends_data.pivot_table(
                     index=['Category', 'Sub-Category'],
                     columns=pd.Grouper(key='Parsed Date', freq='W-SUN', closed='left', label='left'),
