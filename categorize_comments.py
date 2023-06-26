@@ -33,6 +33,10 @@ def compute_keyword_embeddings(keywords):
 
 # Function to preprocess the text
 def preprocess_text(text):
+    #Convert to string if input is a float
+    if isinstance(text, float):
+        text =str(text)
+
     # Remove unnecessary characters and weird characters
     text = text.encode('ascii', 'ignore').decode('utf-8')
 
