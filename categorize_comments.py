@@ -33,20 +33,15 @@ def compute_keyword_embeddings(keywords):
 
 # Function to preprocess the text
 def preprocess_text(text):
-    #Convert to string if input is a float
+    # Convert to string if input is a float
     if isinstance(text, float):
-        text =str(text)
+        text = str(text)
 
     # Remove unnecessary characters and weird characters
     text = text.encode('ascii', 'ignore').decode('utf-8')
 
-    # Remove stopwords
-    stop_words = set(stopwords.words('english'))
-    word_tokens = word_tokenize(text)
-    filtered_text = [word for word in word_tokens if word.lower() not in stop_words]
-    preprocessed_text = ' '.join(filtered_text)
-
-    return preprocessed_text
+    # Return the text without removing stop words
+    return text
 
 # Function to compute semantic similarity
 def compute_semantic_similarity(embedding1, embedding2):
