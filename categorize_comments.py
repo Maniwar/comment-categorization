@@ -70,21 +70,22 @@ if emerging_issue_mode:
 # Edit categories and keywords
 st.sidebar.header("Edit Categories")
 default_categories = {
-    'Website Usability': ['user experience', 'navigation', 'interface', 'design', 'loading speed', 'search functionality', 'mobile responsiveness', 'compatibility', 'site organization', 'site performance', 'page loading time', 'difficult to navigate', 'poorly organized', 'difficult to find information', 'not user-friendly', 'hard to use'],
-    'Product Quality': ['quality', 'defects', 'durability', 'reliability', 'performance', 'features', 'accuracy', 'packaging', 'product condition'],
-    'Shipping and Delivery': ['delivery', 'shipping', 'shipping time', 'tracking', 'package condition', 'courier', 'fulfillment', 'damaged during shipping', 'order tracking'],
-    'Customer Support': ['support service', 'support response time', 'communication', 'issue resolution', 'knowledgeability', 'helpfulness', 'replacement', 'refund', 'customer service experience'],
-    'Order Processing': ['payment', 'stock availability', 'order confirmation', 'cancellation', 'order customization', 'order accuracy'],
-    'Product Selection': ['product customization', 'customization difficulties', 'product variety', 'product options', 'finding the right product', 'product suitability'],
-    'Price Change in Cart': ['promotions', 'price discrepancy', 'discounts missing', 'rebate missing', 'price change in cart', 'price change at checkout', 'trade-in discount', 'free memory upgrade', 'discount program', 'EPP', 'employee discount'],
-    'Product Information': ['specifications', 'descriptions', 'images', 'product details', 'accurate information', 'misleading information', 'product data'],
-    'Returns and Refunds': ['returns', 'refunds', 'return policy', 'refund process', 'return condition', 'return shipping', 'return authorization'],
-    'Warranty and Support': ['warranty', 'technical support', 'repair', 'technical assistance', 'warranty claim', 'product support'],
-    'Website Security': ['security', 'privacy', 'data protection', 'secure checkout', 'account security', 'payment security'],
-    'Website Performance': ['uptime', 'site speed', 'loading time', 'server stability', 'site crashes', 'website availability'],
-    'Accessibility': ['accessibility', 'inclusive design', 'special needs', 'assistive technologies', 'screen reader compatibility', 'website usability for disabled users'],
-    'Unwanted Emails': ['spam emails', 'email subscriptions', 'unsubscribe', 'email preferences', 'inbox management', 'email marketing'],
+    'Website Usability': ['user experience', 'site navigation', 'interface', 'design', 'loading speed', 'search functionality', 'mobile responsiveness', 'compatibility', 'site organization', 'performance', 'page loading time', 'difficult to navigate', 'poor organization', 'hard to find information', 'not user-friendly', 'difficult to use'],
+    'Product Quality': ['quality', 'defects', 'durability', 'reliability', 'performance', 'features', 'accuracy', 'packaging', 'product condition', 'poor quality'],
+    'Shipping and Delivery': ['delivery', 'shipping', 'shipping time', 'tracking', 'package condition', 'courier', 'fulfillment', 'damaged during shipping', 'order tracking', 'late delivery'],
+    'Customer Support': ['support service', 'response time', 'communication', 'issue resolution', 'knowledgeability', 'helpfulness', 'replacement', 'refund', 'customer service experience', 'unhelpful support'],
+    'Order Processing': ['payment', 'stock availability', 'order confirmation', 'cancellation', 'order customization', 'order accuracy', 'payment issues'],
+    'Product Selection': ['product customization', 'customization difficulties', 'product variety', 'product options', 'finding the right product', 'product suitability', 'limited selection'],
+    'Price Change in Cart': ['promotions', 'price discrepancy', 'missing discounts', 'rebate issues', 'price change in cart', 'price change at checkout', 'trade-in discount', 'free memory upgrade', 'discount program', 'EPP', 'employee discount', 'pricing errors'],
+    'Product Information': ['specifications', 'descriptions', 'images', 'product details', 'accurate information', 'misleading information', 'product data', 'inaccurate descriptions'],
+    'Returns and Refunds': ['returns', 'refunds', 'return policy', 'refund process', 'return condition', 'return shipping', 'return authorization', 'lengthy refund process'],
+    'Warranty and Support': ['warranty', 'technical support', 'repair', 'technical assistance', 'warranty claim', 'product support', 'poor support'],
+    'Website Security': ['security', 'privacy', 'data protection', 'secure checkout', 'account security', 'payment security', 'privacy concerns'],
+    'Website Performance': ['uptime', 'site speed', 'loading time', 'server stability', 'site crashes', 'website availability', 'frequent site outages'],
+    'Accessibility': ['accessibility', 'inclusive design', 'special needs', 'assistive technologies', 'screen reader compatibility', 'website usability for disabled users', 'lack of accessibility features'],
+    'Unwanted Emails': ['spam emails', 'email subscriptions', 'unsubscribe', 'email preferences', 'inbox management', 'email marketing', 'excessive email notifications']
 }
+
 
 categories = {}
 for category, keywords in default_categories.items():
