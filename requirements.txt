@@ -4,5 +4,5 @@ nltk
 sentence-transformers
 scikit-learn
 numpy
-openpyxl
+xlsxwriter
 chardet
