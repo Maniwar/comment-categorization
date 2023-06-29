@@ -11,6 +11,7 @@ from io import BytesIO
 import datetime
 import numpy as np
 import openpyxl
+import chardet
 
 # Specify download directory for NLTK data
 nltk.download('stopwords', download_dir='/home/appuser/nltk_data')
@@ -89,7 +90,6 @@ default_categories = {
     'Unwanted Emails': ['spam emails', 'email subscriptions', 'unsubscribe', 'email preferences', 'inbox management', 'email marketing', 'excessive email notifications']
 }
 
-
 categories = {}
 for category, keywords in default_categories.items():
     category_name = st.sidebar.text_input(f"{category} Category", value=category)
@@ -113,7 +113,14 @@ trends_data = None
 if uploaded_file is not None:
     # Read customer feedback from uploaded file
     csv_data = uploaded_file.read()
-    feedback_data = pd.read_csv(BytesIO(csv_data))
+
+    # Detect the encoding of the CSV file
+    result = chardet.detect(csv_data)
+    encoding = result['encoding']
+    try:
+        feedback_data = pd.read_csv(BytesIO(csv_data), encoding=encoding)
+    except Exception as e:
+        st.error(f"Error reading the CSV file: {e}")
     comment_column = st.selectbox("Select the column containing the comments", feedback_data.columns.tolist())
     date_column = st.selectbox("Select the column containing the dates", feedback_data.columns.tolist())
     grouping_option = st.radio("Select how to group the dates", ["Date", "Week", "Month", "Quarter"])
