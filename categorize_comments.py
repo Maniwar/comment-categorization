@@ -297,11 +297,11 @@ if uploaded_file is not None:
             st.subheader("Sub-Category vs Sentiment and Survey Count")
             st.dataframe(pivot2_reset)
 
-            # Display top 5 most recent comments for each of the 5 top subcategories
+            # Display top 10 most recent comments for each of the 10 top subcategories
             st.subheader("Top 5 Most Recent Comments for Each Top Subcategory")
 
-            # Get the top 5 subcategories based on the survey count
-            top_subcategories = pivot2_reset.head(5).index.tolist()
+            # Get the top 10 subcategories based on the survey count
+            top_subcategories = pivot2_reset.head(10).index.tolist()
 
             # Iterate over the top subcategories
             for subcategory in top_subcategories:
@@ -310,8 +310,8 @@ if uploaded_file is not None:
                 # Filter the trends_data DataFrame for the current subcategory
                 filtered_data = trends_data[trends_data['Sub-Category'] == subcategory]
 
-                # Get the top 5 most recent comments for the current subcategory
-                top_comments = filtered_data.nlargest(5, 'Parsed Date')[['Parsed Date', comment_column,'Sentiment', 'Similarity Score']]
+                # Get the top 10 most recent comments for the current subcategory
+                top_comments = filtered_data.nlargest(10, 'Parsed Date')[['Parsed Date', comment_column,'Sentiment', 'Best Match Score']]
 
                 # Format the parsed date to display only the date part
                 top_comments['Parsed Date'] = top_comments['Parsed Date'].dt.date.astype(str)
@@ -402,7 +402,7 @@ if uploaded_file is not None:
             # Write each table of example comments to the sheet
             for subcategory in top_subcategories:
                 filtered_data = trends_data[trends_data['Sub-Category'] == subcategory]
-                top_comments = filtered_data.nlargest(5, 'Parsed Date')[['Parsed Date', comment_column]]
+                top_comments = filtered_data.nlargest(10, 'Parsed Date')[['Parsed Date', comment_column]]
                 # Calculate the starting row for each table
                 start_row = (top_subcategories.index(subcategory) * 8) + 1
 
