@@ -409,7 +409,7 @@ if uploaded_file is not None:
         
                 # Write the subcategory as a merged cell
                 example_comments_sheet.merge_range(start_row, 0, start_row, 1, subcategory)
-                example_comments_sheet.write(start_row, 2, '')```python
+                example_comments_sheet.write(start_row, 2, '')
                 # Write the table headers
                 example_comments_sheet.write(start_row + 1, 0, 'Date')
                 example_comments_sheet.write(start_row + 1, 1, comment_column)
