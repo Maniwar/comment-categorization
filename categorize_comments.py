@@ -420,7 +420,7 @@ if uploaded_file is not None:
                     example_comments_sheet.write(i, 1, row[comment_column])
 
             # Save the Excel file
-            excel_writer.save()
+            excel_writer.close()
 
         # Convert the Excel file to bytes and create a download link
         excel_file.seek(0)
