@@ -63,6 +63,9 @@ emerging_issue_mode = st.sidebar.checkbox("Emerging Issue Mode")
 
 # Add slider for semantic similarity threshold in emerging issue mode
 similarity_threshold = None
+similarity_score = None
+best_match_score = None
+
 if emerging_issue_mode:
     similarity_threshold = st.sidebar.slider("Semantic Similarity Threshold", min_value=0.0, max_value=1.0, value=0.35)
 
@@ -119,7 +122,7 @@ if uploaded_file is not None:
     if comment_column is not None and date_column is not None and grouping_option is not None and process_button:
         # Check if the processed DataFrame is already cached
         @st.cache_data
-        def process_feedback_data(feedback_data, comment_column, date_column, categories, similarity_threshold):
+        def process_feedback_data(feedback_data, comment_column, date_column, categories, similarity_threshold, similarity_score, best_match_score):
             # Compute keyword embeddings
             keyword_embeddings = compute_keyword_embeddings([keyword for keywords in categories.values() for keyword in keywords])
 
@@ -157,14 +160,14 @@ if uploaded_file is not None:
                     sub_category = 'No Match'
 
                 parsed_date = row[date_column].split(' ')[0] if isinstance(row[date_column], str) else None
-                row_extended = row.tolist() + [preprocessed_comment, category, sub_category, sentiment_score, similarity_score, parsed_date]
+                row_extended = row.tolist() + [preprocessed_comment, category, sub_category, sentiment_score, best_match_score, parsed_date]
                 categorized_comments.append(row_extended)
                 sentiments.append(sentiment_score)
                 similarity_scores.append(similarity_score)
 
             # Create a new DataFrame with extended columns
             existing_columns = feedback_data.columns.tolist()
-            additional_columns = [comment_column, 'Category', 'Sub-Category', 'Sentiment', 'Similarity Score', 'Parsed Date']
+            additional_columns = [comment_column, 'Category', 'Sub-Category', 'Sentiment', 'Best Match Score', 'Parsed Date']
             headers = existing_columns + additional_columns
             trends_data = pd.DataFrame(categorized_comments, columns=headers)
             trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce').dt.date
@@ -181,7 +184,7 @@ if uploaded_file is not None:
 
 
         # Process feedback data and cache the result
-        trends_data = process_feedback_data(feedback_data, comment_column, date_column, categories, similarity_threshold)
+        trends_data = process_feedback_data(feedback_data, comment_column, date_column, categories, similarity_threshold, similarity_score, best_match_score)
 
         # Display trends and insights
         if trends_data is not None:
