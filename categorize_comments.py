@@ -341,19 +341,19 @@ if uploaded_file is not None:
         excel_file = BytesIO()
         with pd.ExcelWriter(excel_file, engine='xlsxwriter', mode='xlsx') as excel_writer:
             trends_data.to_excel(excel_writer, sheet_name='Feedback Trends and Insights', index=False)
-        
+
             # Convert 'Parsed Date' column to datetime type
             trends_data['Parsed Date'] = pd.to_datetime(trends_data['Parsed Date'], errors='coerce')
-        
+
             # Create a separate column for formatted date strings
             trends_data['Formatted Date'] = trends_data['Parsed Date'].dt.strftime('%Y-%m-%d')
-        
+
             # Reset the index
             trends_data.reset_index(inplace=True)
-        
+
             # Set 'Formatted Date' column as the index
             trends_data.set_index('Formatted Date', inplace=True)
-        
+
             # Create pivot table with counts for Category, Sub-Category, and Parsed Date
             if grouping_option == 'Date':
                 pivot = trends_data.pivot_table(
@@ -371,7 +371,7 @@ if uploaded_file is not None:
                     aggfunc='count',
                     fill_value=0
                 )
-        
+
             elif grouping_option == 'Month':
                 pivot = trends_data.pivot_table(
                     index=['Category', 'Sub-Category'],
@@ -388,41 +388,40 @@ if uploaded_file is not None:
                     aggfunc='count',
                     fill_value=0
                 )
-        
+
             # Format column headers as date strings in 'YYYY-MM-DD' format
             pivot.columns = pivot.columns.strftime('%Y-%m-%d')
-        
+
             # Write pivot tables to Excel
             pivot.to_excel(excel_writer, sheet_name='Trends by ' + grouping_option, merge_cells=False)
             pivot1.to_excel(excel_writer, sheet_name='Categories', merge_cells=False)
             pivot2.to_excel(excel_writer, sheet_name='Subcategories', merge_cells=False)
-        
+
             # Write example comments to a single sheet
             example_comments_sheet = excel_writer.book.add_worksheet('Example Comments')
-        
+
             # Write each table of example comments to the sheet
             for subcategory in top_subcategories:
                 filtered_data = trends_data[trends_data['Sub-Category'] == subcategory]
                 top_comments = filtered_data.nlargest(10, 'Parsed Date')[['Parsed Date', comment_column]]
                 # Calculate the starting row for each table
                 start_row = (top_subcategories.index(subcategory) * 8) + 1
-        
+
                 # Write the subcategory as a merged cell
                 example_comments_sheet.merge_range(start_row, 0, start_row, 1, subcategory)
                 example_comments_sheet.write(start_row, 2, '')
-                
                 # Write the table headers
                 example_comments_sheet.write(start_row + 1, 0, 'Date')
                 example_comments_sheet.write(start_row + 1, 1, comment_column)
-        
+
                 # Write the table data
                 for i, (_, row) in enumerate(top_comments.iterrows(), start=start_row + 2):
                     example_comments_sheet.write(i, 0, row['Parsed Date'])
                     example_comments_sheet.write(i, 1, row[comment_column])
-        
+
             # Save the Excel file
             excel_writer.save()
-        
+
         # Convert the Excel file to bytes and create a download link
         excel_file.seek(0)
         b64 = base64.b64encode(excel_file.read()).decode()
