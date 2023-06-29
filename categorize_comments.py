@@ -10,7 +10,7 @@ import base64
 from io import BytesIO
 import datetime
 import numpy as np
-import xls
+import xlsxwriter
 import chardet
 
 # Specify download directory for NLTK data
